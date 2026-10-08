@@ -13,12 +13,14 @@ DeepSeek Harness (DSH) 全局代理插件：通过**系统代理**或**自定义
 | **模型请求**（对话补全、SSE 流式、web_search/web_fetch 提供商） | 替换 undici **全局调度器**为 `EnvHttpProxyAgent` —— 进程内所有 `fetch()`（所有 LLM 适配器都用全局 fetch）都走代理。 |
 | **Agent 子进程**（`curl`/`git`/`npm`/pwsh 等工具） | 向 `process.env` 写入 `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY`/`NO_PROXY`，DSH 的子进程环境会继承。 |
 | **Agent 感知** | 每次请求时动态重渲染系统提示段落（`Proxy status: ON/OFF`）；另有 `proxy_status`（读）与 `proxy_set`（写）两个模型工具。 |
-| **持久化** | 配置存放在 `proxy` 设置命名空间（设置 → 插件 → 代理），叠加在组合配置之上，**实时生效**（`applies: live`），改配置无需重启。 |
+| **持久化** | 配置即本插件的组合条目（设置 → 插件 → dsh-plugin-proxy）。可编辑字段标记为 `.volatile()`，框架据此生成设置表单；改动直接写入运行中的配置引用（**无需重启**），并通过 `loader/volatile-update` 通知插件重新应用。 |
+
+> **与内置 `@deepseek-ai/dsh-http-proxy` 的关系**：DSH ≥0.2 自带一个启动器层代理（读 `http_proxy`/`https_proxy`/`all_proxy`/`no_proxy`，在第一个插件加载前安装全局调度器），本插件不与之竞争，而是补齐它明确不做的三件事：**读取 Windows 系统代理**、**运行中随时切换**、**让模型感知代理状态**。两者叠加使用时，本插件写入的环境变量正是内置层所读的名称；注意内置层只在启动时读取一次环境，因此运行中切换仍由本插件自行替换调度器完成。
 
 ## 界面
 
 - **主界面常驻开关**：位于侧边栏底部，始终可见，一键切换代理开关；侧边栏收起为窄栏时保留紧凑开关。
-- **设置卡片**（设置 → 插件 → 代理）：
+- **插件配置页**（设置 → 插件 → dsh-plugin-proxy）：
   - **代理地址来源**：`使用系统代理（Windows 设置）` / `自定义地址` / `不使用代理`。
   - **自定义代理地址**：如 `http://127.0.0.1:7890`（仅在「自定义地址」模式下显示）。
   - **直连名单（NO_PROXY）**：逗号分隔；`localhost` / `127.0.0.1` / `::1` 始终直连。
@@ -68,7 +70,7 @@ node test/smoke-undici.mjs    # 真实 undici 经本地代理路由
 
 测试需要能解析 `@deepseek-ai/*` peer 依赖与 `undici`（可 junction 到 DSH 安装 / profile 的 `node_modules`，或 `pnpm install`）。
 
-> 维护者注意：浏览器端 `exports.inject` 必须写 Cordis **服务名**（`slots`、`settingsScope`），绝不能写包名——写包名会让插件永久 pending 并卡死 web boot。详见 [`docs/LESSONS.md`](docs/LESSONS.md) 与 `client-shape` 回归测试。
+> 维护者注意：浏览器端 `exports.inject` 必须写 Cordis **服务名**（`slots`、`configForms`），绝不能写包名——写包名会让插件永久 pending 并卡死 web boot。详见 [`docs/LESSONS.md`](docs/LESSONS.md) 与 `client-shape` 回归测试。
 
 ## 已知限制
 
